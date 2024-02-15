@@ -40,6 +40,11 @@ def wr_upper_bound_s(inst: WeightRestriction) -> Fraction:
     return res
 
 
+def wr_solution_upper_bound(inst: WeightRestriction) -> int:
+    # \left\lceil \frac{\fRw(1 - \fRw)}{\fRn - \fRw} n \right\rceil
+    return ceil(inst.tw * (1 - inst.tw) / (inst.tn - inst.tw) * inst.n)
+
+
 def allocate(inst: WeightRestriction, s: Fraction, shift: Fraction) -> List[int]:
     return [floor(inst.weights[i] * s + shift) for i in range(inst.n)]
 
@@ -58,7 +63,7 @@ def wr_solve(inst: WeightRestriction, no_jit: bool, verify: bool) -> List[int]:
 
     if verify:
         logging.debug("Verifying the upper bound...")
-        assert wr_solution_valid(inst, allocate(inst, s_high, shift), no_jit), "Upper bound is not valid"
+        assert wr_solution_valid(inst, allocate(inst, s_high, shift), no_jit), "s* upper bound is violated"
 
     logging.debug("Binary search for s*...")
 
@@ -179,6 +184,7 @@ def wr_solve(inst: WeightRestriction, no_jit: bool, verify: bool) -> List[int]:
     if verify:
         logging.debug("Verifying the final solution...")
         assert wr_solution_valid(inst, t_best, no_jit), "k* is too low"
+        assert sum(t_best) <= wr_solution_upper_bound(inst), "Upper bound is violated"
 
     return t_best
 
