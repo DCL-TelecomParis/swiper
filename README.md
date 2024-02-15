@@ -27,7 +27,8 @@ Solver usage examples (see the help message for more details):
 # -v enables verbose logging. -vv enables debug logging. --debug verifies the solution.
 ./main.py wr --tw 1/3 --tn 1/2 ./examples/aptos.dat -vv --debug
 # --tw and --tn can be fractions or decimals
-./main.py wr --tw 0.3 --tn 1/3 ./examples/tezos.dat -v
-./main.py wq --tw 1/3 --tn 1/4 ./examples/filecoin.dat
-./main.py wq --tw 2/3 --tn 5/8 ./examples/algorand.dat
+./main.py wr --tw 0.3 --tn 1/3 ./examples/tezos.dat -v --debug
+# --sum-only only prints the total number of assigned tickets instead of the assignment itself
+./main.py wq --tw 1/3 --tn 1/4 ./examples/filecoin.dat --sum-only
+./main.py wq --tw 2/3 --tn 5/8 ./examples/algorand.dat --sum-only
 ```

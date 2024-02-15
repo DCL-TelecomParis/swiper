@@ -118,7 +118,7 @@ def main(argv: List[str]) -> None:
     solution = solve(inst, args.no_jit, verify=args.debug)
     assert solution is not None
 
-    logger.info(solution)
+    logger.info("Solution: %s", solution)
     logger.info(f"Total tickets allocated: {sum(solution)}.")
 
     if args.sum_only:
