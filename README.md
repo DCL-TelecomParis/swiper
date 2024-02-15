@@ -17,6 +17,11 @@ You can verify the installation and see some useful options by running:
 # Weight separation solver is not yet implemented.
 ```
 
+You can run the tests by executing:
+```bash
+./scripts/test-all.sh
+``` 
+
 Solver usage examples (see the help message for more details):
 ```bash
 # -v enables verbose logging. -vv enables debug logging. --debug verifies the solution.
