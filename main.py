@@ -102,13 +102,15 @@ def main(argv: List[str]) -> None:
 
     if args.problem == "wr":
         if args.tw >= args.tn:
-            raise ValueError("In Weight Restriction, the weighted threshold must be smaller "
-                             "than the nominal threshold.")
+            print("In Weight Restriction, the weighted threshold must be smaller than the nominal threshold.",
+                  file=sys.stderr)
+            sys.exit(1)
         inst = WeightRestriction(weights, args.tw, args.tn)
     else:
         if args.tw <= args.tn:
-            raise ValueError("In Weight Qualification, the weighted threshold must be greater "
-                             "than the nominal threshold.")
+            print("In Weight Qualification, the weighted threshold must be greater than the nominal threshold.",
+                  file=sys.stderr)
+            sys.exit(1)
         inst = WeightQualification(weights, args.tw, args.tn)
 
     logger.info("Problem: %s", inst)
