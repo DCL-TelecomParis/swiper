@@ -41,6 +41,11 @@ def main(argv: List[str]) -> None:
                                help="Set this flag to enable very verbose logging.")
     common_parser.add_argument("--debug", action="store_true",
                                help="Verify the validity of the final solution and of some intermediate results.")
+    common_parser.add_argument("-o", "--output-file", type=argparse.FileType("w"), default=sys.stdout,
+                               help="The path to the output file where the ticket assignment will be written. "
+                                    "If absent, the standard output will be used.")
+    common_parser.add_argument("--sum-only", action="store_true", default=False,
+                               help="Only output the total number of assigned tickets instead of the full assignment.")
 
     subparsers = parser.add_subparsers(title="problem", required=True, dest="problem")
 
@@ -111,12 +116,15 @@ def main(argv: List[str]) -> None:
     logger.info("Threshold weight: %s", inst.threshold_weight)
 
     solution = solve(inst, args.no_jit, verify=args.debug)
-    logger.info("Solution: %s", sum(solution))
-
     assert solution is not None
-    logger.info(solution)
 
-    print(f"Total tickets allocated: {sum(solution)}.")
+    logger.info(solution)
+    logger.info(f"Total tickets allocated: {sum(solution)}.")
+
+    if args.sum_only:
+        print(sum(solution), file=args.output_file)
+    else:
+        print(" ".join(map(str, solution)), file=args.output_file)
 
 
 if __name__ == '__main__':

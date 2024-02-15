@@ -9,8 +9,8 @@ for dataset in $data_folder/*.dat; do
   echo "Processing $dataset"
   for param in "${params[@]}"; do
     IFS=' ' read -r tw tn <<< "$param"
-    echo "wr --tw $tw --tn $tn $dataset --debug"
-    ./main.py wr --tw "$tw" --tn "$tn" "$dataset" --debug
+    echo "wr --tw $tw --tn $tn $dataset --debug --sum-only"
+    ./main.py wr --tw "$tw" --tn "$tn" "$dataset" --debug --sum-only
   done
   echo
 done
