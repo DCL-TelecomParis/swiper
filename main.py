@@ -96,8 +96,14 @@ def main(argv: List[str]) -> None:
     weights = [int(w * denominator_lcm // numerator_gcd) for w in weights]
 
     if args.problem == "wr":
+        if args.tw >= args.tn:
+            raise ValueError("In Weight Restriction, the weighted threshold must be smaller "
+                             "than the nominal threshold.")
         inst = WeightRestriction(weights, args.tw, args.tn)
     else:
+        if args.tw <= args.tn:
+            raise ValueError("In Weight Qualification, the weighted threshold must be greater "
+                             "than the nominal threshold.")
         inst = WeightQualification(weights, args.tw, args.tn)
 
     logger.info("Problem: %s", inst)
