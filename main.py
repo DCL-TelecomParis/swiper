@@ -46,6 +46,10 @@ def main(argv: List[str]) -> None:
                                     "If absent, the standard output will be used.")
     common_parser.add_argument("--sum-only", action="store_true", default=False,
                                help="Only output the total number of assigned tickets instead of the full assignment.")
+    common_parser.add_argument("--linear", action="store_true", default=False,
+                               help="Use the quasi-linear-time solver instead of the full one. "
+                                    "The bounds for the number of tickets assigned are different, "
+                                    "but the total is still at most linear in the number of parties.")
 
     subparsers = parser.add_subparsers(title="problem", required=True, dest="problem")
 
@@ -117,7 +121,7 @@ def main(argv: List[str]) -> None:
     logger.info("Total weight: %s", inst.total_weight)
     logger.info("Threshold weight: %s", inst.threshold_weight)
 
-    solution = solve(inst, args.no_jit, verify=args.debug)
+    solution = solve(inst, linear=args.linear, no_jit=args.no_jit, verify=args.debug)
     assert solution is not None
 
     logger.info("Solution: %s", solution)
