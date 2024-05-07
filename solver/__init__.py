@@ -67,8 +67,26 @@ def wr_solve(inst: WeightRestriction, linear: bool, no_jit: bool, verify: bool) 
 
     logging.debug("Binary search for s*...")
 
-    # First, use knapsack upper bound instead of actual knapsack to speed up the process
-    logging.debug("Using knapsack upper bound to estimate s*...")
+    # First, disregard values of s* that would violate the WR upper bound proof.
+    logging.debug("Using the WR upper bound to disregard high values of s*...")
+    solution_upper_bound = wr_solution_upper_bound(inst)
+    steps = 0
+    while s_high - s_low >= eps:
+        steps += 1
+
+        s_mid = (s_high + s_low) / 2
+        t_mid = allocate(inst, s_mid, shift)
+
+        if sum(t_mid) >= solution_upper_bound:
+            s_high = s_mid
+        else:
+            s_low = s_mid
+
+    logging.debug(f"Finished in {steps} steps.")
+    logging.debug("s* <= %s", s_high)
+
+    # Use knapsack upper bound instead of actual knapsack to speed up the process
+    logging.debug("Using the knapsack upper bound to estimate s*...")
     steps = 0
     while s_high - s_low >= eps:
         steps += 1
@@ -134,7 +152,24 @@ def wr_solve(inst: WeightRestriction, linear: bool, no_jit: bool, verify: bool) 
 
     logging.debug("Binary search for optimal k*...")
 
-    # Again, first, use knapsack upper bound instead of actual knapsack to speed up the process
+    # Again, first, disregard the values of k* that would violate the upper bound proof.
+    logging.debug("Using the WR upper bound to disregard high values of k*...")
+    steps = 0
+    while k_high - k_low > 1:
+        steps += 1
+
+        k_mid = (k_high + k_low) // 2
+        t_mid = [t_low[i] if i in border_set[k_mid:] else t_high[i] for i in range(inst.n)]
+
+        if sum(t_mid) >= solution_upper_bound:
+            k_high = k_mid
+        else:
+            k_low = k_mid
+
+    logging.debug(f"Finished in {steps} steps.")
+    logging.debug("k* <= %s/%s", k_high, len(border_set))
+
+    # Use knapsack upper bound instead of actual knapsack to speed up the process
     logging.debug("Using knapsack upper bound to estimate k*...")
     steps = 0
     while k_high - k_low > 1:
@@ -149,7 +184,7 @@ def wr_solve(inst: WeightRestriction, linear: bool, no_jit: bool, verify: bool) 
             k_low = k_mid
 
     logging.debug(f"Finished in {steps} steps.")
-    logging.debug("k <= %s/%s", k_high, len(border_set))
+    logging.debug("k* <= %s/%s", k_high, len(border_set))
 
     if linear:
         logging.debug("Skipping further optimization of k* because linear mode is enabled.")
@@ -184,7 +219,7 @@ def wr_solve(inst: WeightRestriction, linear: bool, no_jit: bool, verify: bool) 
                 k_low = k_mid
 
         logging.debug(f"Finished in {steps} steps.")
-        logging.debug("k = %s/%s", k_high, len(border_set))
+        logging.debug("k* = %s/%s", k_high, len(border_set))
 
     t_best = [t_low[i] if i in border_set[k_high:] else t_high[i] for i in range(inst.n)]
 
