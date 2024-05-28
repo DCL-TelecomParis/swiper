@@ -25,11 +25,7 @@ class WeightQualification:
         self.weights = weights
         # Total weight of all parties
         self.total_weight = sum(weights)
-        # Maximum possible total weight of Byzantine parties
-        self.threshold_weight = tw * self.total_weight
-        # Threshold on the fraction of total weight controlled by the adversary
         self.tw = tw
-        # Threshold on the fraction of tickets allocated to the adversary
         self.tn = tn
 
     def __str__(self):

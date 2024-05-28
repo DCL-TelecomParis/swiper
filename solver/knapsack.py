@@ -1,15 +1,12 @@
-import inspect
 import logging
 from fractions import Fraction
-from typing import Union, Tuple, List, Optional
-from numba import njit
+from typing import Union, List
+
 import numpy as np
+from numba import njit
 from numba.core.extending import register_jitable
 
-from solver.util import lcm, rev
-
-overflow_warning = ("Integer overflow while converting fractional weights to integers for JIT compilation. "
-                    "Using pure python implementation, which is much slower for large instances.")
+from solver.util import rev
 
 MAX_INT_64 = np.iinfo(np.int64).max
 
@@ -41,13 +38,15 @@ def knapsack(
         return _knapsack_impl(weights, profits, capacity, upper_bound)
 
     assert isinstance(weights[0], int)
-    # Capacity may be a fraction. However, rounding it down does not affect the result.
-    capacity = int(capacity)
 
     # Make sure that all integers fit into 64 bits to avoid overflows
     if sum(weights) > MAX_INT_64 or sum(profits) > MAX_INT_64 or capacity > MAX_INT_64:
-        logging.warning(overflow_warning)
+        logging.warning("Integer overflow while converting fractional weights to integers for JIT compilation. "
+                        "Using pure python implementation, which is much slower for large instances.")
         return _knapsack_impl(weights, profits, capacity, upper_bound)
+
+    # Capacity may be a fraction. However, rounding it down does not affect the result.
+    capacity = np.int64(int(capacity))
 
     # Call the JIT-compiled function
     return _knapsack_jit_int(np.array(weights, dtype=np.int64), np.array(profits, dtype=np.int64),
@@ -111,15 +110,16 @@ def knapsack_upper_bound(
     n = len(weights)
     assert len(profits) == n
 
-    descending_efficiency_parties = sorted(range(n), key=lambda i: profits[i] / weights[i], reverse=True)
+    items = [(profits[i] / weights[i], weights[i], profits[i]) for i in range(n)]
+    items.sort(reverse=True, key=lambda x: x[0])
 
-    profit = 0
-    for party in descending_efficiency_parties:
-        if capacity >= weights[party]:
-            capacity -= weights[party]
-            profit += profits[party]
+    profit_upper_bound = 0
+    for (_, weight, profit) in items:
+        if capacity > weight:
+            capacity -= weight
+            profit_upper_bound += profit
         else:
-            profit += profits[party] * (capacity / weights[party])
+            profit_upper_bound += int(profit * (capacity / weight))
             break
 
-    return profit
+    return profit_upper_bound

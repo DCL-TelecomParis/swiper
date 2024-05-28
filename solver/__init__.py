@@ -6,9 +6,15 @@ from typing import List, Union
 from solver.knapsack import knapsack, knapsack_upper_bound
 from solver.wq import WeightQualification
 from solver.wr import WeightRestriction
+from solver.ws import WeightSeparation
 
 
-def solve(inst: Union[WeightRestriction, WeightQualification], linear: bool, no_jit: bool, verify: bool) -> List[int]:
+def solve(
+        inst: Union[WeightRestriction, WeightQualification, WeightSeparation],
+        linear: bool,
+        no_jit: bool,
+        verify: bool
+) -> List[int]:
     """
     Solve the Weight Restriction or Weight Qualification problem.
     Returns the status of the solution, the solution itself and the gas expended.
@@ -18,6 +24,8 @@ def solve(inst: Union[WeightRestriction, WeightQualification], linear: bool, no_
         return wq_solve(inst, linear, no_jit, verify)
     elif isinstance(inst, WeightRestriction):
         return wr_solve(inst, linear, no_jit, verify)
+    elif isinstance(inst, WeightSeparation):
+        return ws_solve(inst, linear, no_jit, verify)
     else:
         raise ValueError(f"Unknown instance type {type(inst)}")
 
@@ -31,18 +39,14 @@ def wq_solve(inst: WeightQualification, linear: bool, no_jit: bool, verify: bool
     return wr_solve(inst.to_wr(), linear, no_jit, verify)
 
 
-def wr_upper_bound_s(inst: WeightRestriction) -> Fraction:
-    # s := \frac{\alpha_n (1 - \alpha_w)n}{(\alpha_n - \alpha_w)W}
-    assert isinstance(inst.tw, Fraction)
-    assert isinstance(inst.tn, Fraction)
-    res = inst.tn * (1 - inst.tw) * inst.n / ((inst.tn - inst.tw) * inst.total_weight)
-    assert isinstance(res, Fraction)
-    return res
-
-
 def wr_solution_upper_bound(inst: WeightRestriction) -> int:
     # \left\lceil \frac{\alpha_w(1 - \alpha_w)}{\alpha_n - \alpha_w} n \right\rceil
     return ceil(inst.tw * (1 - inst.tw) / (inst.tn - inst.tw) * inst.n)
+
+
+def ws_solution_upper_bound(inst: WeightSeparation) -> int:
+    # \frac{(\alpha + \beta)(1 - \alpha)}{\beta - \alpha} n
+    return (inst.alpha + inst.beta) * (1 - inst.alpha) / (inst.beta - inst.alpha) * inst.n
 
 
 def allocate(inst: WeightRestriction, s: Fraction, shift: Fraction) -> List[int]:
@@ -50,27 +54,110 @@ def allocate(inst: WeightRestriction, s: Fraction, shift: Fraction) -> List[int]
 
 
 def wr_solve(inst: WeightRestriction, linear: bool, no_jit: bool, verify: bool) -> List[int]:
-    assert all(isinstance(inst.weights[i], int) for i in range(inst.n))
+    # This is the largest integer smaller than inst.tw * inst.total_weight
+    knapsack_weight = ceil(inst.tw * inst.total_weight) - 1
 
-    shift = inst.tw
-    eps = Fraction(1, max(inst.weights))
+    def check_solution_fast(t: List[int]) -> bool:
+        return knapsack_upper_bound(inst.weights, t, knapsack_weight) < inst.tn * sum(t)
 
-    # this is the largest integer smaller than inst.threshold_weight
-    threshold_weight_non_strict = ceil(inst.threshold_weight) - 1
+    def check_solution_slow(t: List[int]) -> bool:
+        knapsack_res = knapsack(inst.weights, t, knapsack_weight,
+                                upper_bound=ceil(inst.tn * sum(t)), no_jit=no_jit)
+        res = knapsack_res < inst.tn * sum(t)
+        return res
 
-    s_high = wr_upper_bound_s(inst)
-    s_low = 0
+    return generic_solver(
+        inst=inst,
+        shift=inst.tw,
+        verify=verify,
+        linear=linear,
+        solution_upper_bound=wr_solution_upper_bound(inst),
+        check_solution_fast=check_solution_fast,
+        check_solution_slow=check_solution_slow,
+    )
+
+
+def ws_solve(inst: WeightSeparation, linear: bool, no_jit: bool, verify: bool) -> List[int]:
+    # This is the largest integer smaller than inst.alpha * inst.total_weight.
+    alpha_knapsack_weight = ceil(inst.alpha * inst.total_weight) - 1
+
+    # This is the largest integer smaller than (1 - inst.beta) * inst.total_weight.
+    beta_inv_knapsack_weight = ceil((1 - inst.beta) * inst.total_weight) - 1
+
+    def check_solution_fast(t: List[int]) -> bool:
+        alpha_knapsack_upper_bound = knapsack_upper_bound(inst.weights, t, alpha_knapsack_weight)
+        beta_inv_knapsack_upper_bound = knapsack_upper_bound(inst.weights, t, beta_inv_knapsack_weight)
+        return alpha_knapsack_upper_bound < sum(t) - beta_inv_knapsack_upper_bound
+
+    def check_solution_slow(t: List[int]) -> bool:
+        sum_t = sum(t)
+        # TODO: the two knapsacks can be solved together in one run
+        beta_inv_knapsack = knapsack(inst.weights, t, beta_inv_knapsack_weight,
+                                     upper_bound=sum_t, no_jit=no_jit)
+        alpha_knapsack = knapsack(inst.weights, t, alpha_knapsack_weight,
+                                  upper_bound=sum_t - beta_inv_knapsack, no_jit=no_jit)
+        return alpha_knapsack < sum_t - beta_inv_knapsack
+
+    return generic_solver(
+        inst=inst,
+        shift=(inst.alpha + inst.beta) / 2,
+        verify=verify,
+        linear=linear,
+        solution_upper_bound=ws_solution_upper_bound(inst),
+        check_solution_fast=check_solution_fast,
+        check_solution_slow=check_solution_slow,
+    )
+
+
+def generic_solver(
+        inst,
+        shift,
+        verify,
+        linear,
+        solution_upper_bound,
+        # check_solution_fast gives an overestimation, that is, it must return True if the solution is valid,
+        # but it is allowed to return True even if the solution is invalid.
+        check_solution_fast,
+        check_solution_slow,
+):
+    n = len(inst.weights)
+    assert all(isinstance(inst.weights[i], int) for i in range(n))
 
     if verify:
-        logging.debug("Verifying the upper bound...")
-        assert wr_solution_valid(inst, allocate(inst, s_high, shift), no_jit), "s* upper bound is violated"
+        # Override check_solution_slow so that when it returns false, it also
+        # verifies that check_solution_fast returns false as it should because
+        # it is supposed to give an overestimation.
+        original_check_solution_slow = check_solution_slow
+
+        def check_solution_slow_override(t: List[int]) -> bool:
+            res = original_check_solution_slow(t)
+            if not res:
+                assert not check_solution_fast(t), "check_solution_fast is incorrect"
+            return res
+
+        check_solution_slow = check_solution_slow_override
+
+    eps = Fraction(1, max(inst.weights))
 
     logging.debug("Binary search for s*...")
 
-    # First, disregard values of s* that would violate the WR upper bound proof.
-    logging.debug("Using the WR upper bound to disregard high values of s*...")
-    solution_upper_bound = wr_solution_upper_bound(inst)
+    # First, disregard values of s* such that, if there was a local minimum among them,
+    # it would violate the upper bound proof.
+    logging.debug("Using the solution upper bound to disregard high values of s*...")
+
+    s_low = 0
+    s_high = eps
     steps = 0
+    while True:
+        steps += 1
+
+        t_high = allocate(inst, s_high, shift)
+        if sum(t_high) >= solution_upper_bound:
+            break
+
+        s_low = s_high
+        s_high *= 2
+
     while s_high - s_low >= eps:
         steps += 1
 
@@ -85,16 +172,21 @@ def wr_solve(inst: WeightRestriction, linear: bool, no_jit: bool, verify: bool) 
     logging.debug(f"Finished in {steps} steps.")
     logging.debug("s* <= %s", s_high)
 
-    # Use knapsack upper bound instead of actual knapsack to speed up the process
-    logging.debug("Using the knapsack upper bound to estimate s*...")
+    if verify:
+        logging.debug("Verifying the s* upper bound...")
+        assert check_solution_slow(allocate(inst, s_high, shift)), "s* upper bound is violated"
+
+    # Use knapsack bounds instead of actual knapsack solver to speed up the process
+    logging.debug("Using the knapsack bounds to estimate s*...")
     steps = 0
+    s_low = 0
     while s_high - s_low >= eps:
         steps += 1
 
         s_mid = (s_high + s_low) / 2
         t_mid = allocate(inst, s_mid, shift)
 
-        if knapsack_upper_bound(inst.weights, t_mid, threshold_weight_non_strict) < inst.tn * sum(t_mid):
+        if check_solution_fast(t_mid):
             s_high = s_mid
         else:
             s_low = s_mid
@@ -107,7 +199,7 @@ def wr_solve(inst: WeightRestriction, linear: bool, no_jit: bool, verify: bool) 
     else:
         # Use actual knapsack to find a local minimum
         # Using a special type of accelerated binary search that is fast with a good initial estimate
-        logging.debug("Using knapsack to find s* precisely...")
+        logging.debug("Using knapsack solver to find s* precisely...")
         speed = eps
         s_low = 0
 
@@ -124,11 +216,8 @@ def wr_solve(inst: WeightRestriction, linear: bool, no_jit: bool, verify: bool) 
                 s_mid = (s_high + s_low) / 2
 
             t_mid = allocate(inst, s_mid, shift)
-            sum_t_mid = sum(t_mid)
 
-            knapsack_res = knapsack(inst.weights, t_mid, threshold_weight_non_strict,
-                                    upper_bound=floor(sum_t_mid * inst.tn) + 1, no_jit=no_jit)
-            if knapsack_res < inst.tn * sum_t_mid:
+            if check_solution_slow(t_mid):
                 s_high = s_mid
             else:
                 s_low = s_mid
@@ -144,16 +233,16 @@ def wr_solve(inst: WeightRestriction, linear: bool, no_jit: bool, verify: bool) 
 
     if verify:
         logging.debug("Verifying the intermediate solution...")
-        assert wr_solution_valid(inst, t_high, no_jit), "s* is too low"
+        assert check_solution_slow(t_high), "s* is too low"
 
     # do binary search to determine how many parties in the border set should be rounded up
     k_low = 0
-    k_high = len(border_set)
+    k_high = len(border_set) + 1
 
     logging.debug("Binary search for optimal k*...")
 
     # Again, first, disregard the values of k* that would violate the upper bound proof.
-    logging.debug("Using the WR upper bound to disregard high values of k*...")
+    logging.debug("Using the solution upper bound to disregard high values of k*...")
     steps = 0
     while k_high - k_low > 1:
         steps += 1
@@ -161,24 +250,30 @@ def wr_solve(inst: WeightRestriction, linear: bool, no_jit: bool, verify: bool) 
         k_mid = (k_high + k_low) // 2
         t_mid = [t_low[i] if i in border_set[k_mid:] else t_high[i] for i in range(inst.n)]
 
-        if sum(t_mid) >= solution_upper_bound:
+        if sum(t_mid) > solution_upper_bound:
             k_high = k_mid
         else:
             k_low = k_mid
 
+    # k_low is the largest value of k that satisfies the upper bound
+    # hence, k* <= k_low
+    assert k_high == k_low + 1
+    k_high = k_low
+
     logging.debug(f"Finished in {steps} steps.")
     logging.debug("k* <= %s/%s", k_high, len(border_set))
 
-    # Use knapsack upper bound instead of actual knapsack to speed up the process
-    logging.debug("Using knapsack upper bound to estimate k*...")
+    # Use knapsack bounds instead of actual knapsack to speed up the process
+    logging.debug("Using knapsack bounds to estimate k*...")
     steps = 0
+    k_low = 0
     while k_high - k_low > 1:
         steps += 1
 
         k_mid = (k_high + k_low) // 2
         t_mid = [t_low[i] if i in border_set[k_mid:] else t_high[i] for i in range(inst.n)]
 
-        if knapsack_upper_bound(inst.weights, t_mid, threshold_weight_non_strict) < inst.tn * sum(t_mid):
+        if check_solution_slow(t_mid):
             k_high = k_mid
         else:
             k_low = k_mid
@@ -191,7 +286,7 @@ def wr_solve(inst: WeightRestriction, linear: bool, no_jit: bool, verify: bool) 
     else:
         # Use actual knapsack to find a local minimum
         # Using a special type of accelerated binary search that is fast with a good initial estimate
-        logging.debug("Using knapsack to find k* precisely...")
+        logging.debug("Using knapsack solver to find k* precisely...")
 
         k_low = 0
         speed = 1
@@ -209,11 +304,8 @@ def wr_solve(inst: WeightRestriction, linear: bool, no_jit: bool, verify: bool) 
                 k_mid = (k_high + k_low) // 2
 
             t_mid = [t_low[i] if i in border_set[k_mid:] else t_high[i] for i in range(inst.n)]
-            sum_t_mid = sum(t_mid)
 
-            knapsack_res = knapsack(inst.weights, t_mid, threshold_weight_non_strict,
-                                    upper_bound=floor(sum_t_mid * inst.tn) + 1, no_jit=no_jit)
-            if knapsack_res < inst.tn * sum_t_mid:
+            if check_solution_slow(t_mid):
                 k_high = k_mid
             else:
                 k_low = k_mid
@@ -225,13 +317,7 @@ def wr_solve(inst: WeightRestriction, linear: bool, no_jit: bool, verify: bool) 
 
     if verify:
         logging.debug("Verifying the final solution...")
-        assert wr_solution_valid(inst, t_best, no_jit), "k* is too low"
-        assert sum(t_best) <= wr_solution_upper_bound(inst), "Upper bound is violated"
+        assert check_solution_slow(t_best), "k* is too low"
 
+    assert sum(t_best) <= solution_upper_bound, "Upper bound is violated"
     return t_best
-
-
-def wr_solution_valid(inst: WeightRestriction, t: List[int], no_jit: bool) -> bool:
-    knapsack_res = knapsack(inst.weights, t, ceil(inst.threshold_weight) - 1,
-                            upper_bound=floor(sum(t) * inst.tn) + 1, no_jit=no_jit)
-    return knapsack_res < inst.tn * sum(t)
