@@ -1,7 +1,7 @@
 import logging
 from fractions import Fraction
 from math import floor, ceil
-from typing import List, Union
+from typing import List, Union, Optional
 
 from solver.knapsack import knapsack, knapsack_upper_bound
 from solver.wq import WeightQualification
@@ -49,8 +49,32 @@ def ws_solution_upper_bound(inst: WeightSeparation) -> int:
     return (inst.alpha + inst.beta) * (1 - inst.alpha) / (inst.beta - inst.alpha) * inst.n
 
 
-def allocate(inst: WeightRestriction, s: Fraction, shift: Fraction) -> List[int]:
-    return [floor(inst.weights[i] * s + shift) for i in range(inst.n)]
+def allocate(weights: List[Fraction], s: Fraction, shift: Fraction) -> List[int]:
+    return [floor(w * s + shift) for w in weights]
+
+
+def round_down(weights, s: Fraction, shift: Fraction, ts: Optional[List[int]], verify: bool) -> Fraction:
+    """Returns the smallest s' <= s such that allocate(weights, s', shift) == allocate(weights, s, shift)."""
+    if not ts:
+        ts = allocate(weights, s, shift)
+    res = max((t - shift) / w for w, t in zip(weights, ts))
+    if verify:
+        # assert any(t > 0 and t == int(t) for t in (w * res + shift for w in weights)), \
+        #     "round_down is incorrect (no integers)"
+        assert allocate(weights, res, shift) == ts, "round_down is incorrect (too low)"
+        assert allocate(weights, res * 0.99999999, shift) != ts, "round_down is incorrect (too high)"
+    return res
+
+
+def round_up(weights, s: Fraction, shift: Fraction, ts: Optional[List[int]], verify: bool) -> Fraction:
+    """Returns the smallest s' > s such that allocate(weights, s', shift) != allocate(weights, s, shift)."""
+    if not ts:
+        ts = allocate(weights, s, shift)
+    res = min((t + 1 - shift) / w for w, t in zip(weights, ts))
+    if verify:
+        assert allocate(weights, res, shift) != ts, "round_up is incorrect (too low)"
+        assert allocate(weights, max(s, res * 0.99999999), shift) == ts, "round_up is incorrect (too high)"
+    return res
 
 
 def wr_solve(inst: WeightRestriction, linear: bool, no_jit: bool, verify: bool) -> List[int]:
@@ -151,48 +175,48 @@ def generic_solver(
     while True:
         steps += 1
 
-        t_high = allocate(inst, s_high, shift)
+        t_high = allocate(inst.weights, s_high, shift)
         if sum(t_high) >= solution_upper_bound:
             break
 
         s_low = s_high
         s_high *= 2
 
-    while s_high - s_low >= eps:
+    while s_high != s_low:
         steps += 1
 
         s_mid = (s_high + s_low) / 2
-        t_mid = allocate(inst, s_mid, shift)
+        t_mid = allocate(inst.weights, s_mid, shift)
 
         if sum(t_mid) >= solution_upper_bound:
-            s_high = s_mid
+            s_high = round_down(inst.weights, s_mid, shift, t_mid, verify)
         else:
-            s_low = s_mid
+            s_low = round_up(inst.weights, s_mid, shift, t_mid, verify)
 
     logging.debug(f"Finished in {steps} steps.")
-    logging.debug("s* <= %s", s_high)
+    logging.debug("s* <= %s (%s)", s_high, float(s_high))
 
     if verify:
         logging.debug("Verifying the s* upper bound...")
-        assert check_solution_slow(allocate(inst, s_high, shift)), "s* upper bound is violated"
+        assert check_solution_slow(allocate(inst.weights, s_high, shift)), "s* upper bound is violated"
 
     # Use knapsack bounds instead of actual knapsack solver to speed up the process
     logging.debug("Using the knapsack bounds to estimate s*...")
     steps = 0
     s_low = 0
-    while s_high - s_low >= eps:
+    while s_high != s_low:
         steps += 1
 
         s_mid = (s_high + s_low) / 2
-        t_mid = allocate(inst, s_mid, shift)
+        t_mid = allocate(inst.weights, s_mid, shift)
 
         if check_solution_fast(t_mid):
-            s_high = s_mid
+            s_high = round_down(inst.weights, s_mid, shift, t_mid, verify)
         else:
-            s_low = s_mid
+            s_low = round_up(inst.weights, s_mid, shift, t_mid, verify)
 
     logging.debug(f"Finished in {steps} steps.")
-    logging.debug("s* <= %s", s_high)
+    logging.debug("s* <= %s (%s)", s_high, float(s_high))
 
     if linear:
         logging.debug("Skipping further optimization of s* because linear mode is enabled.")
@@ -204,7 +228,7 @@ def generic_solver(
         s_low = 0
 
         steps = 0
-        while s_high - s_low >= eps:
+        while s_high != s_low:
             steps += 1
 
             if 2 * speed < s_high - s_low:
@@ -215,18 +239,18 @@ def generic_solver(
                 # Fall back to regular binary search
                 s_mid = (s_high + s_low) / 2
 
-            t_mid = allocate(inst, s_mid, shift)
+            t_mid = allocate(inst.weights, s_mid, shift)
 
             if check_solution_slow(t_mid):
-                s_high = s_mid
+                s_high = round_down(inst.weights, s_mid, shift, t_mid, verify)
             else:
-                s_low = s_mid
+                s_low = round_up(inst.weights, s_mid, shift, t_mid, verify)
 
         logging.debug(f"Finished in {steps} steps.")
-        logging.debug("s* = %s", s_high)
+        logging.debug("s* = %s (%s)", s_high, float(s_high))
 
-    t_low = allocate(inst, s_low, shift)
-    t_high = allocate(inst, s_high, shift)
+    t_low = allocate(inst.weights, s_high - eps, shift)
+    t_high = allocate(inst.weights, s_high, shift)
 
     border_set = [i for i in range(inst.n) if t_low[i] != t_high[i]]
     assert all(t_low[i] == t_high[i] - 1 for i in border_set)
