@@ -139,18 +139,24 @@ def generic_solver(
         verify,
         linear,
         solution_upper_bound,
-        # check_solution_fast gives an overestimation, that is, it must return True if the solution is valid,
-        # but it is allowed to return True even if the solution is invalid.
+        # check_solution_fast gives a conservative estimate, that is, it must return False if the solution is invalid,
+        # but it is allowed to return False even if the solution is valid.
         check_solution_fast,
         check_solution_slow,
 ):
     n = len(inst.weights)
     assert all(isinstance(inst.weights[i], int) for i in range(n))
 
+    if linear:
+        def check_solution_slow_override(_: List[int]) -> bool:
+            assert False, "unreachable: quadratic check is called in linear mode"
+
+        check_solution_slow = check_solution_slow_override
+
     if verify:
-        # Override check_solution_slow so that when it returns false, it also
-        # verifies that check_solution_fast returns false as it should because
-        # it is supposed to give an overestimation.
+        # Override check_solution_slow so that when it returns False, it also
+        # verifies that check_solution_fast returns False as it should because
+        # it is supposed to give a conservative estimate.
         original_check_solution_slow = check_solution_slow
 
         def check_solution_slow_override(t: List[int]) -> bool:
@@ -160,6 +166,13 @@ def generic_solver(
             return res
 
         check_solution_slow = check_solution_slow_override
+
+    verify_solution = None
+    if verify:
+        if linear:
+            verify_solution = check_solution_fast
+        else:
+            verify_solution = check_solution_slow
 
     eps = Fraction(1, max(inst.weights))
 
@@ -198,7 +211,7 @@ def generic_solver(
 
     if verify:
         logging.debug("Verifying the s* upper bound...")
-        assert check_solution_slow(allocate(inst.weights, s_high, shift)), "s* upper bound is violated"
+        assert verify_solution(allocate(inst.weights, s_high, shift)), "s* upper bound is violated"
 
     # Use knapsack bounds instead of actual knapsack solver to speed up the process
     logging.debug("Using the knapsack bounds to estimate s*...")
@@ -257,7 +270,7 @@ def generic_solver(
 
     if verify:
         logging.debug("Verifying the intermediate solution...")
-        assert check_solution_slow(t_high), "s* is too low"
+        assert verify_solution(t_high), "s* is too low"
 
     # do binary search to determine how many parties in the border set should be rounded up
     k_low = 0
@@ -297,7 +310,7 @@ def generic_solver(
         k_mid = (k_high + k_low) // 2
         t_mid = [t_low[i] if i in border_set[k_mid:] else t_high[i] for i in range(inst.n)]
 
-        if check_solution_slow(t_mid):
+        if check_solution_fast(t_mid):
             k_high = k_mid
         else:
             k_low = k_mid
@@ -341,7 +354,7 @@ def generic_solver(
 
     if verify:
         logging.debug("Verifying the final solution...")
-        assert check_solution_slow(t_best), "k* is too low"
+        assert verify_solution(t_best), "k* is too low"
 
     assert sum(t_best) <= solution_upper_bound, "Upper bound is violated"
     return t_best

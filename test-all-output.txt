@@ -78,7 +78,7 @@ Processing ./examples/aptos.dat
 ./main.py wr --tw 1/4 --tn 1/3 ./examples/aptos.dat --debug --sum-only --linear
 85
 ./main.py wr --tw 1/4 --tn 1/3 ./examples/aptos.dat --debug --sum-only 
-55
+58
 ./main.py wr --tw 1/3 --tn 3/8 ./examples/aptos.dat --debug --sum-only --linear
 235
 ./main.py wr --tw 1/3 --tn 3/8 ./examples/aptos.dat --debug --sum-only 
@@ -88,9 +88,9 @@ Processing ./examples/aptos.dat
 ./main.py wr --tw 0.3 --tn 0.4 ./examples/aptos.dat --debug --sum-only 
 56
 ./main.py wr --tw 2/3 --tn 3/4 ./examples/aptos.dat --debug --sum-only --linear
-107
+109
 ./main.py wr --tw 2/3 --tn 3/4 ./examples/aptos.dat --debug --sum-only 
-107
+109
 ./main.py wq --tw 0.3 --tn 0.2 ./examples/aptos.dat --debug --sum-only --linear
 78
 ./main.py wq --tw 0.3 --tn 0.2 ./examples/aptos.dat --debug --sum-only 
@@ -126,7 +126,7 @@ Processing ./examples/artificial_150.dat
 ./main.py wr --tw 0.3 --tn 0.4 ./examples/artificial_150.dat --debug --sum-only 
 228
 ./main.py wr --tw 2/3 --tn 3/4 ./examples/artificial_150.dat --debug --sum-only --linear
-237
+238
 ./main.py wr --tw 2/3 --tn 3/4 ./examples/artificial_150.dat --debug --sum-only 
 237
 ./main.py wq --tw 0.3 --tn 0.2 ./examples/artificial_150.dat --debug --sum-only --linear
@@ -142,11 +142,11 @@ Processing ./examples/artificial_150.dat
 ./main.py ws --alpha 1/3 --beta 2/3 ./examples/artificial_150.dat --debug --sum-only 
 205
 ./main.py ws --alpha 0.6 --beta 0.7 ./examples/artificial_150.dat --debug --sum-only --linear
-263
+264
 ./main.py ws --alpha 0.6 --beta 0.7 ./examples/artificial_150.dat --debug --sum-only 
 263
 ./main.py ws --alpha 0.25 --beta 1/3 ./examples/artificial_150.dat --debug --sum-only --linear
-263
+264
 ./main.py ws --alpha 0.25 --beta 1/3 ./examples/artificial_150.dat --debug --sum-only 
 263
 
@@ -240,9 +240,9 @@ Processing ./examples/tezos.dat
 ./main.py wr --tw 0.3 --tn 0.4 ./examples/tezos.dat --debug --sum-only 
 126
 ./main.py wr --tw 2/3 --tn 3/4 ./examples/tezos.dat --debug --sum-only --linear
-258
+259
 ./main.py wr --tw 2/3 --tn 3/4 ./examples/tezos.dat --debug --sum-only 
-255
+258
 ./main.py wq --tw 0.3 --tn 0.2 ./examples/tezos.dat --debug --sum-only --linear
 163
 ./main.py wq --tw 0.3 --tn 0.2 ./examples/tezos.dat --debug --sum-only 
@@ -252,7 +252,7 @@ Processing ./examples/tezos.dat
 ./main.py wq --tw 2/3 --tn 1/3 ./examples/tezos.dat --debug --sum-only 
 23
 ./main.py ws --alpha 1/3 --beta 2/3 ./examples/tezos.dat --debug --sum-only --linear
-65
+67
 ./main.py ws --alpha 1/3 --beta 2/3 ./examples/tezos.dat --debug --sum-only 
 65
 ./main.py ws --alpha 0.6 --beta 0.7 ./examples/tezos.dat --debug --sum-only --linear
