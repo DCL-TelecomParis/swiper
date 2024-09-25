@@ -200,8 +200,8 @@ def generic_solver(
 
     logging.debug("Binary search for s*...")
 
-    # First, disregard values of s* such that, if there was a local minimum among them,
-    # it would violate the upper bound proof.
+    # First, disregard values of s that yield solutions with the total number of tickets
+    # higher than the upper bound (see the paper for the explanation of why this is valid).
     logging.debug("Using the solution upper bound to disregard high values of s*...")
 
     s_low = 0
@@ -237,55 +237,38 @@ def generic_solver(
         logging.debug("Verifying the s* upper bound...")
         assert verify_solution(allocate(inst.weights, s_high, shift)), "s* upper bound is violated"
 
-    # Use knapsack bounds instead of actual knapsack solver to speed up the process
-    logging.debug("Using the knapsack bounds to estimate s*...")
-    steps = 0
+    # binary search for s*
+    if linear:
+        logging.debug("Using the knapsack upper bound to estimate s*...")
+    else:
+        logging.debug("Using knapsack solver to find s* precisely...")
+
     s_low = 0
+    steps = 0
+    slow_check_calls = 0
     while s_high != s_low:
         steps += 1
 
         s_mid = (s_high + s_low) / 2
         t_mid = allocate(inst.weights, s_mid, shift)
 
-        if check_solution_fast(t_mid) == FastCheckResult.VALID:
+        fast_res = check_solution_fast(t_mid)
+        if fast_res == FastCheckResult.VALID:
             s_high = round_down(inst.weights, s_mid, shift, t_mid, verify)
-        else:
+        elif linear or fast_res == FastCheckResult.INVALID:
             s_low = round_up(inst.weights, s_mid, shift, t_mid, verify)
+        else:
+            slow_check_calls += 1
 
-    logging.debug(f"Finished in {steps} steps.")
-    logging.debug("s* <= %s (%s)", s_high, float(s_high))
+            if check_solution_slow(t_mid):
+                s_high = round_down(inst.weights, s_mid, shift, t_mid, verify)
+            else:
+                s_low = round_up(inst.weights, s_mid, shift, t_mid, verify)
 
+    logging.debug(f"Finished in {steps} steps with {slow_check_calls} slow checks.")
     if linear:
-        logging.debug("Skipping further optimization of s* because linear mode is enabled.")
+        logging.debug("s* <= %s (%s)", s_high, float(s_high))
     else:
-        # Use actual knapsack to find a local minimum.
-        # Still using check_solution_fast to minimize the number of calls to check_solution_slow.
-        logging.debug("Using knapsack solver to find s* precisely...")
-
-        s_low = 0
-        steps = 0
-        slow_check_calls = 0
-        while s_high != s_low:
-            steps += 1
-
-            s_mid = (s_high + s_low) / 2
-            t_mid = allocate(inst.weights, s_mid, shift)
-
-            match check_solution_fast(t_mid):
-                case FastCheckResult.VALID:
-                    s_high = round_down(inst.weights, s_mid, shift, t_mid, verify)
-                case FastCheckResult.INVALID:
-                    s_low = round_up(inst.weights, s_mid, shift, t_mid, verify)
-                case FastCheckResult.UNCERTAIN:
-                    # Fall back to the slow check
-                    slow_check_calls += 1
-
-                    if check_solution_slow(t_mid):
-                        s_high = round_down(inst.weights, s_mid, shift, t_mid, verify)
-                    else:
-                        s_low = round_up(inst.weights, s_mid, shift, t_mid, verify)
-
-        logging.debug(f"Finished in {steps} steps with {slow_check_calls} calls to the full knapsack solver.")
         logging.debug("s* = %s (%s)", s_high, float(s_high))
 
     t_high = allocate(inst.weights, s_high, shift)
@@ -298,7 +281,7 @@ def generic_solver(
         logging.debug("Verifying the intermediate solution...")
         assert verify_solution(t_high), "s* is too low"
 
-    # do binary search to determine how many parties in the border set should be rounded up
+    # Determine how many parties in the border set should be rounded up.
     k_low = 0
     k_high = len(border_set) + 1
 
@@ -326,9 +309,14 @@ def generic_solver(
     logging.debug(f"Finished in {steps} steps.")
     logging.debug("k* <= %s/%s", k_high, len(border_set))
 
-    # Use knapsack bounds instead of actual knapsack to speed up the process
-    logging.debug("Using knapsack bounds to estimate k*...")
+    # binary search for k*
+    if linear:
+        logging.debug("Using knapsack bounds to estimate k*...")
+    else:
+        logging.debug("Using knapsack solver to find k* precisely...")
+
     steps = 0
+    slow_check_calls = 0
     k_low = 0
     while k_high - k_low > 1:
         steps += 1
@@ -336,45 +324,23 @@ def generic_solver(
         k_mid = (k_high + k_low) // 2
         t_mid = [t_low[i] if i in border_set[k_mid:] else t_high[i] for i in range(inst.n)]
 
-        if check_solution_fast(t_mid) == FastCheckResult.VALID:
+        fast_res = check_solution_fast(t_mid)
+        if fast_res == FastCheckResult.VALID:
             k_high = k_mid
-        else:
+        elif linear or fast_res == FastCheckResult.INVALID:
             k_low = k_mid
+        else:
+            slow_check_calls += 1
 
-    logging.debug(f"Finished in {steps} steps.")
-    logging.debug("k* <= %s/%s", k_high, len(border_set))
+            if check_solution_slow(t_mid):
+                k_high = k_mid
+            else:
+                k_low = k_mid
 
+    logging.debug(f"Finished in {steps} steps with {slow_check_calls} slow checks.")
     if linear:
-        logging.debug("Skipping further optimization of k* because linear mode is enabled.")
+        logging.debug("k* <= %s/%s", k_high, len(border_set))
     else:
-        # Use actual knapsack to find a local minimum.
-        # Still using check_solution_fast to minimize the number of calls to check_solution_slow.
-        logging.debug("Using knapsack solver to find k* precisely...")
-
-        k_low = 0
-        steps = 0
-        slow_check_calls = 0
-        while k_high - k_low > 1:
-            steps += 1
-
-            k_mid = (k_high + k_low) // 2
-            t_mid = [t_low[i] if i in border_set[k_mid:] else t_high[i] for i in range(inst.n)]
-
-            match check_solution_fast(t_mid):
-                case FastCheckResult.VALID:
-                    k_high = k_mid
-                case FastCheckResult.INVALID:
-                    k_low = k_mid
-                case FastCheckResult.UNCERTAIN:
-                    # Fall back to the slow check
-                    slow_check_calls += 1
-
-                    if check_solution_slow(t_mid):
-                        k_high = k_mid
-                    else:
-                        k_low = k_mid
-
-        logging.debug(f"Finished in {steps} steps with {slow_check_calls} calls to the full knapsack solver.")
         logging.debug("k* = %s/%s", k_high, len(border_set))
 
     t_best = [t_low[i] if i in border_set[k_high:] else t_high[i] for i in range(inst.n)]
