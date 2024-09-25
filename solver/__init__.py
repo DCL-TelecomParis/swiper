@@ -1,9 +1,10 @@
 import logging
+from enum import Enum
 from fractions import Fraction
 from math import floor, ceil
 from typing import List, Union, Optional
 
-from solver.knapsack import knapsack, knapsack_upper_bound
+from solver.knapsack import knapsack, knapsack_bounds
 from solver.wq import WeightQualification
 from solver.wr import WeightRestriction
 from solver.ws import WeightSeparation
@@ -77,12 +78,25 @@ def round_up(weights, s: Fraction, shift: Fraction, ts: Optional[List[int]], ver
     return res
 
 
+class FastCheckResult(Enum):
+    VALID = 1  # The solution is definitely valid.
+    INVALID = 2  # The solution is definitely invalid.
+    UNCERTAIN = 3  # The fast check failed to determine the validity.
+
+
 def wr_solve(inst: WeightRestriction, linear: bool, no_jit: bool, verify: bool) -> List[int]:
     # This is the largest integer smaller than inst.tw * inst.total_weight
     knapsack_weight = ceil(inst.tw * inst.total_weight) - 1
 
-    def check_solution_fast(t: List[int]) -> bool:
-        return knapsack_upper_bound(inst.weights, t, knapsack_weight) < inst.tn * sum(t)
+    def check_solution_fast(t: List[int]) -> FastCheckResult:
+        (lb, ub) = knapsack_bounds(inst.weights, t, knapsack_weight)
+        threshold = inst.tn * sum(t)
+        if ub < threshold:
+            return FastCheckResult.VALID
+        elif lb >= threshold:
+            return FastCheckResult.INVALID
+        else:
+            return FastCheckResult.UNCERTAIN
 
     def check_solution_slow(t: List[int]) -> bool:
         knapsack_res = knapsack(inst.weights, t, knapsack_weight,
@@ -108,10 +122,16 @@ def ws_solve(inst: WeightSeparation, linear: bool, no_jit: bool, verify: bool) -
     # This is the largest integer smaller than (1 - inst.beta) * inst.total_weight.
     beta_inv_knapsack_weight = ceil((1 - inst.beta) * inst.total_weight) - 1
 
-    def check_solution_fast(t: List[int]) -> bool:
-        alpha_knapsack_upper_bound = knapsack_upper_bound(inst.weights, t, alpha_knapsack_weight)
-        beta_inv_knapsack_upper_bound = knapsack_upper_bound(inst.weights, t, beta_inv_knapsack_weight)
-        return alpha_knapsack_upper_bound < sum(t) - beta_inv_knapsack_upper_bound
+    def check_solution_fast(t: List[int]) -> FastCheckResult:
+        (alpha_lb, alpha_ub) = knapsack_bounds(inst.weights, t, alpha_knapsack_weight)
+        (beta_inv_lb, beta_inv_ub) = knapsack_bounds(inst.weights, t, beta_inv_knapsack_weight)
+        sum_t = sum(t)
+        if alpha_ub < sum_t - beta_inv_ub:
+            return FastCheckResult.VALID
+        elif alpha_lb >= sum_t - beta_inv_lb:
+            return FastCheckResult.INVALID
+        else:
+            return FastCheckResult.UNCERTAIN
 
     def check_solution_slow(t: List[int]) -> bool:
         sum_t = sum(t)
@@ -139,8 +159,6 @@ def generic_solver(
         verify,
         linear,
         solution_upper_bound,
-        # check_solution_fast gives a conservative estimate, that is, it must return False if the solution is invalid,
-        # but it is allowed to return False even if the solution is valid.
         check_solution_fast,
         check_solution_slow,
 ):
@@ -160,21 +178,25 @@ def generic_solver(
         original_check_solution_slow = check_solution_slow
 
         def check_solution_slow_override(t: List[int]) -> bool:
-            res = original_check_solution_slow(t)
-            if not res:
-                assert not check_solution_fast(t), "check_solution_fast is incorrect"
-            return res
+            slow_res = original_check_solution_slow(t)
+
+            fast_res = check_solution_fast(t)
+            if fast_res == FastCheckResult.VALID:
+                assert slow_res, "check_solution_fast returned VALID on an invalid solution"
+            elif fast_res == FastCheckResult.INVALID:
+                assert not slow_res, "check_solution_fast returned INVALID on a valid solution"
+
+            return slow_res
 
         check_solution_slow = check_solution_slow_override
 
     verify_solution = None
     if verify:
         if linear:
-            verify_solution = check_solution_fast
+            def verify_solution(t):
+                return check_solution_fast(t) == FastCheckResult.VALID
         else:
             verify_solution = check_solution_slow
-
-    eps = Fraction(1, max(inst.weights))
 
     logging.debug("Binary search for s*...")
 
@@ -183,8 +205,10 @@ def generic_solver(
     logging.debug("Using the solution upper bound to disregard high values of s*...")
 
     s_low = 0
-    s_high = eps
     steps = 0
+
+    # Find an upper bound for the binary search
+    s_high = Fraction(1, max(inst.weights))
     while True:
         steps += 1
 
@@ -223,7 +247,7 @@ def generic_solver(
         s_mid = (s_high + s_low) / 2
         t_mid = allocate(inst.weights, s_mid, shift)
 
-        if check_solution_fast(t_mid):
+        if check_solution_fast(t_mid) == FastCheckResult.VALID:
             s_high = round_down(inst.weights, s_mid, shift, t_mid, verify)
         else:
             s_low = round_up(inst.weights, s_mid, shift, t_mid, verify)
@@ -234,32 +258,34 @@ def generic_solver(
     if linear:
         logging.debug("Skipping further optimization of s* because linear mode is enabled.")
     else:
-        # Use actual knapsack to find a local minimum
-        # Using a special type of accelerated binary search that is fast with a good initial estimate
+        # Use actual knapsack to find a local minimum.
+        # Still using check_solution_fast to minimize the number of calls to check_solution_slow.
         logging.debug("Using knapsack solver to find s* precisely...")
-        speed = eps
-        s_low = 0
 
+        s_low = 0
         steps = 0
+        slow_check_calls = 0
         while s_high != s_low:
             steps += 1
 
-            if 2 * speed < s_high - s_low:
-                # Move from s_high with an acceleration
-                s_mid = s_high - speed
-                speed *= 2
-            else:
-                # Fall back to regular binary search
-                s_mid = (s_high + s_low) / 2
-
+            s_mid = (s_high + s_low) / 2
             t_mid = allocate(inst.weights, s_mid, shift)
 
-            if check_solution_slow(t_mid):
-                s_high = round_down(inst.weights, s_mid, shift, t_mid, verify)
-            else:
-                s_low = round_up(inst.weights, s_mid, shift, t_mid, verify)
+            match check_solution_fast(t_mid):
+                case FastCheckResult.VALID:
+                    s_high = round_down(inst.weights, s_mid, shift, t_mid, verify)
+                case FastCheckResult.INVALID:
+                    s_low = round_up(inst.weights, s_mid, shift, t_mid, verify)
+                case FastCheckResult.UNCERTAIN:
+                    # Fall back to the slow check
+                    slow_check_calls += 1
 
-        logging.debug(f"Finished in {steps} steps.")
+                    if check_solution_slow(t_mid):
+                        s_high = round_down(inst.weights, s_mid, shift, t_mid, verify)
+                    else:
+                        s_low = round_up(inst.weights, s_mid, shift, t_mid, verify)
+
+        logging.debug(f"Finished in {steps} steps with {slow_check_calls} calls to the full knapsack solver.")
         logging.debug("s* = %s (%s)", s_high, float(s_high))
 
     t_high = allocate(inst.weights, s_high, shift)
@@ -310,7 +336,7 @@ def generic_solver(
         k_mid = (k_high + k_low) // 2
         t_mid = [t_low[i] if i in border_set[k_mid:] else t_high[i] for i in range(inst.n)]
 
-        if check_solution_fast(t_mid):
+        if check_solution_fast(t_mid) == FastCheckResult.VALID:
             k_high = k_mid
         else:
             k_low = k_mid
@@ -321,33 +347,34 @@ def generic_solver(
     if linear:
         logging.debug("Skipping further optimization of k* because linear mode is enabled.")
     else:
-        # Use actual knapsack to find a local minimum
-        # Using a special type of accelerated binary search that is fast with a good initial estimate
+        # Use actual knapsack to find a local minimum.
+        # Still using check_solution_fast to minimize the number of calls to check_solution_slow.
         logging.debug("Using knapsack solver to find k* precisely...")
 
         k_low = 0
-        speed = 1
-
         steps = 0
+        slow_check_calls = 0
         while k_high - k_low > 1:
             steps += 1
 
-            if 2 * speed < k_high - k_low:
-                # Move from k_high with an acceleration
-                k_mid = k_high - speed
-                speed *= 2
-            else:
-                # Fall back to regular binary search
-                k_mid = (k_high + k_low) // 2
-
+            k_mid = (k_high + k_low) // 2
             t_mid = [t_low[i] if i in border_set[k_mid:] else t_high[i] for i in range(inst.n)]
 
-            if check_solution_slow(t_mid):
-                k_high = k_mid
-            else:
-                k_low = k_mid
+            match check_solution_fast(t_mid):
+                case FastCheckResult.VALID:
+                    k_high = k_mid
+                case FastCheckResult.INVALID:
+                    k_low = k_mid
+                case FastCheckResult.UNCERTAIN:
+                    # Fall back to the slow check
+                    slow_check_calls += 1
 
-        logging.debug(f"Finished in {steps} steps.")
+                    if check_solution_slow(t_mid):
+                        k_high = k_mid
+                    else:
+                        k_low = k_mid
+
+        logging.debug(f"Finished in {steps} steps with {slow_check_calls} calls to the full knapsack solver.")
         logging.debug("k* = %s/%s", k_high, len(border_set))
 
     t_best = [t_low[i] if i in border_set[k_high:] else t_high[i] for i in range(inst.n)]

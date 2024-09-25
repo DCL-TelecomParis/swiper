@@ -95,15 +95,15 @@ def _knapsack_jit_int(
     return _knapsack_impl(weights, profits, capacity, upper_bound)
 
 
-def knapsack_upper_bound(
+def knapsack_bounds(
         weights: List[Union[Fraction, float, int]],
         profits: List[int],
         capacity: Union[Fraction, float, int],
-) -> int:
+) -> (int, int):
     """
-    Returns an upper bound for the knapsack solution in quasilinear time.
+    Returns the lower and upper bound for the knapsack solution in quasilinear time.
 
-    NB: this upper bound can be computed in linear time using a slightly more complicated algorithm.
+    NB: these bounds can be computed in linear time using a slightly more complicated algorithm.
     See: Section 3.1 of "Knapsack problems" by Pisinger, D., & Toth, P. (1998)
     """
 
@@ -113,13 +113,31 @@ def knapsack_upper_bound(
     items = [(profits[i] / weights[i], weights[i], profits[i]) for i in range(n)]
     items.sort(reverse=True, key=lambda x: x[0])
 
+    profit_lower_bound = 0
     profit_upper_bound = 0
     for (_, weight, profit) in items:
         if capacity > weight:
             capacity -= weight
+            profit_lower_bound += profit
             profit_upper_bound += profit
         else:
             profit_upper_bound += int(profit * (capacity / weight))
             break
 
-    return profit_upper_bound
+    return profit_lower_bound, profit_upper_bound
+
+
+def knapsack_upper_bound(
+        weights: List[Union[Fraction, float, int]],
+        profits: List[int],
+        capacity: Union[Fraction, float, int],
+) -> int:
+    return knapsack_bounds(weights, profits, capacity)[1]
+
+
+def knapsack_lower_bound(
+        weights: List[Union[Fraction, float, int]],
+        profits: List[int],
+        capacity: Union[Fraction, float, int],
+) -> int:
+    return knapsack_bounds(weights, profits, capacity)[0]
