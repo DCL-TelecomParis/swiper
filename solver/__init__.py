@@ -262,8 +262,8 @@ def generic_solver(
         logging.debug(f"Finished in {steps} steps.")
         logging.debug("s* = %s (%s)", s_high, float(s_high))
 
-    t_low = allocate(inst.weights, s_high - eps, shift)
     t_high = allocate(inst.weights, s_high, shift)
+    t_low = [t - 1 if t > 0 and t == w * s_high + shift else t for (t, w) in zip(t_high, inst.weights)]
 
     border_set = [i for i in range(inst.n) if t_low[i] != t_high[i]]
     assert all(t_low[i] == t_high[i] - 1 for i in border_set)

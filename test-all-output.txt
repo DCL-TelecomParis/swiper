@@ -32,7 +32,7 @@ Processing ./examples/1_to_7.dat
 ./main.py ws --alpha 0.6 --beta 0.7 ./examples/1_to_7.dat --debug --sum-only 
 10
 ./main.py ws --alpha 0.25 --beta 1/3 ./examples/1_to_7.dat --debug --sum-only --linear
-15
+19
 ./main.py ws --alpha 0.25 --beta 1/3 ./examples/1_to_7.dat --debug --sum-only 
 6
 
@@ -42,11 +42,11 @@ Processing ./examples/algorand.dat
 ./main.py wr --tw 1/4 --tn 1/3 ./examples/algorand.dat --debug --sum-only 
 745
 ./main.py wr --tw 1/3 --tn 3/8 ./examples/algorand.dat --debug --sum-only --linear
-13470
+13475
 ./main.py wr --tw 1/3 --tn 3/8 ./examples/algorand.dat --debug --sum-only 
 13435
 ./main.py wr --tw 0.3 --tn 0.4 ./examples/algorand.dat --debug --sum-only --linear
-728
+731
 ./main.py wr --tw 0.3 --tn 0.4 ./examples/algorand.dat --debug --sum-only 
 728
 ./main.py wr --tw 2/3 --tn 3/4 ./examples/algorand.dat --debug --sum-only --linear
@@ -62,17 +62,17 @@ Processing ./examples/algorand.dat
 ./main.py wq --tw 2/3 --tn 1/3 ./examples/algorand.dat --debug --sum-only 
 88
 ./main.py ws --alpha 1/3 --beta 2/3 ./examples/algorand.dat --debug --sum-only --linear
-293
+299
 ./main.py ws --alpha 1/3 --beta 2/3 ./examples/algorand.dat --debug --sum-only 
-293
+299
 ./main.py ws --alpha 0.6 --beta 0.7 ./examples/algorand.dat --debug --sum-only --linear
-20675
+20710
 ./main.py ws --alpha 0.6 --beta 0.7 ./examples/algorand.dat --debug --sum-only 
-20661
+20673
 ./main.py ws --alpha 0.25 --beta 1/3 ./examples/algorand.dat --debug --sum-only --linear
-46010
+46009
 ./main.py ws --alpha 0.25 --beta 1/3 ./examples/algorand.dat --debug --sum-only 
-46010
+46009
 
 Processing ./examples/aptos.dat
 ./main.py wr --tw 1/4 --tn 1/3 ./examples/aptos.dat --debug --sum-only --linear
@@ -88,11 +88,11 @@ Processing ./examples/aptos.dat
 ./main.py wr --tw 0.3 --tn 0.4 ./examples/aptos.dat --debug --sum-only 
 56
 ./main.py wr --tw 2/3 --tn 3/4 ./examples/aptos.dat --debug --sum-only --linear
-109
+110
 ./main.py wr --tw 2/3 --tn 3/4 ./examples/aptos.dat --debug --sum-only 
-109
+110
 ./main.py wq --tw 0.3 --tn 0.2 ./examples/aptos.dat --debug --sum-only --linear
-78
+79
 ./main.py wq --tw 0.3 --tn 0.2 ./examples/aptos.dat --debug --sum-only 
 78
 ./main.py wq --tw 2/3 --tn 1/3 ./examples/aptos.dat --debug --sum-only --linear
@@ -104,9 +104,9 @@ Processing ./examples/aptos.dat
 ./main.py ws --alpha 1/3 --beta 2/3 ./examples/aptos.dat --debug --sum-only 
 27
 ./main.py ws --alpha 0.6 --beta 0.7 ./examples/aptos.dat --debug --sum-only --linear
-248
+252
 ./main.py ws --alpha 0.6 --beta 0.7 ./examples/aptos.dat --debug --sum-only 
-249
+251
 ./main.py ws --alpha 0.25 --beta 1/3 ./examples/aptos.dat --debug --sum-only --linear
 385
 ./main.py ws --alpha 0.25 --beta 1/3 ./examples/aptos.dat --debug --sum-only 
@@ -146,17 +146,17 @@ Processing ./examples/artificial_150.dat
 ./main.py ws --alpha 0.6 --beta 0.7 ./examples/artificial_150.dat --debug --sum-only 
 263
 ./main.py ws --alpha 0.25 --beta 1/3 ./examples/artificial_150.dat --debug --sum-only --linear
-264
+265
 ./main.py ws --alpha 0.25 --beta 1/3 ./examples/artificial_150.dat --debug --sum-only 
-263
+264
 
 Processing ./examples/filecoin.dat
 ./main.py wr --tw 1/4 --tn 1/3 ./examples/filecoin.dat --debug --sum-only --linear
-3088
+3091
 ./main.py wr --tw 1/4 --tn 1/3 ./examples/filecoin.dat --debug --sum-only 
-3088
+3091
 ./main.py wr --tw 1/3 --tn 3/8 ./examples/filecoin.dat --debug --sum-only --linear
-8230
+8233
 ./main.py wr --tw 1/3 --tn 3/8 ./examples/filecoin.dat --debug --sum-only 
 8227
 ./main.py wr --tw 0.3 --tn 0.4 ./examples/filecoin.dat --debug --sum-only --linear
@@ -180,9 +180,9 @@ Processing ./examples/filecoin.dat
 ./main.py ws --alpha 1/3 --beta 2/3 ./examples/filecoin.dat --debug --sum-only 
 1609
 ./main.py ws --alpha 0.6 --beta 0.7 ./examples/filecoin.dat --debug --sum-only --linear
-8981
+9101
 ./main.py ws --alpha 0.6 --beta 0.7 ./examples/filecoin.dat --debug --sum-only 
-8981
+9101
 ./main.py ws --alpha 0.25 --beta 1/3 ./examples/filecoin.dat --debug --sum-only --linear
 10485
 ./main.py ws --alpha 0.25 --beta 1/3 ./examples/filecoin.dat --debug --sum-only 
@@ -190,7 +190,7 @@ Processing ./examples/filecoin.dat
 
 Processing ./examples/primes_23.dat
 ./main.py wr --tw 1/4 --tn 1/3 ./examples/primes_23.dat --debug --sum-only --linear
-22
+25
 ./main.py wr --tw 1/4 --tn 1/3 ./examples/primes_23.dat --debug --sum-only 
 19
 ./main.py wr --tw 1/3 --tn 3/8 ./examples/primes_23.dat --debug --sum-only --linear
@@ -228,13 +228,13 @@ Processing ./examples/primes_23.dat
 
 Processing ./examples/tezos.dat
 ./main.py wr --tw 1/4 --tn 1/3 ./examples/tezos.dat --debug --sum-only --linear
-130
+133
 ./main.py wr --tw 1/4 --tn 1/3 ./examples/tezos.dat --debug --sum-only 
-130
+133
 ./main.py wr --tw 1/3 --tn 3/8 ./examples/tezos.dat --debug --sum-only --linear
-422
+425
 ./main.py wr --tw 1/3 --tn 3/8 ./examples/tezos.dat --debug --sum-only 
-422
+425
 ./main.py wr --tw 0.3 --tn 0.4 ./examples/tezos.dat --debug --sum-only --linear
 126
 ./main.py wr --tw 0.3 --tn 0.4 ./examples/tezos.dat --debug --sum-only 
@@ -244,11 +244,11 @@ Processing ./examples/tezos.dat
 ./main.py wr --tw 2/3 --tn 3/4 ./examples/tezos.dat --debug --sum-only 
 258
 ./main.py wq --tw 0.3 --tn 0.2 ./examples/tezos.dat --debug --sum-only --linear
-163
+167
 ./main.py wq --tw 0.3 --tn 0.2 ./examples/tezos.dat --debug --sum-only 
 163
 ./main.py wq --tw 2/3 --tn 1/3 ./examples/tezos.dat --debug --sum-only --linear
-23
+25
 ./main.py wq --tw 2/3 --tn 1/3 ./examples/tezos.dat --debug --sum-only 
 23
 ./main.py ws --alpha 1/3 --beta 2/3 ./examples/tezos.dat --debug --sum-only --linear
@@ -256,9 +256,9 @@ Processing ./examples/tezos.dat
 ./main.py ws --alpha 1/3 --beta 2/3 ./examples/tezos.dat --debug --sum-only 
 65
 ./main.py ws --alpha 0.6 --beta 0.7 ./examples/tezos.dat --debug --sum-only --linear
-522
+527
 ./main.py ws --alpha 0.6 --beta 0.7 ./examples/tezos.dat --debug --sum-only 
-522
+527
 ./main.py ws --alpha 0.25 --beta 1/3 ./examples/tezos.dat --debug --sum-only --linear
 736
 ./main.py ws --alpha 0.25 --beta 1/3 ./examples/tezos.dat --debug --sum-only 
